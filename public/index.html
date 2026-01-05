@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PORTAL DO LICENCIADO</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🚀</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <h1 class="titulo">PORTAL DO LICENCIADO</h1>
+
+    <div id="login-card">
+      <h2>Login</h2>
+      <form id="login-form">
+        <input type="text" id="username" placeholder="Usuário" required />
+        <input type="password" id="password" placeholder="Senha" required />
+        <button type="submit">Entrar</button>
+      </form>
+      <p id="login-error" class="erro"></p>
+    </div>
+
+    <div id="portal" style="display: none">
+      <h2>Bem-vindo, <span id="user-name"></span></h2>
+
+      <div class="card-wrapper">
+        <div class="card">
+          <h3>Área de Upload</h3>
+          <form id="upload-form">
+            <input type="file" name="file" id="file-input" required />
+            <button type="submit">Enviar Arquivo</button>
+          </form>
+          
+        </div>
+        <div class="card">
+          <h3>Área de Upload - Treinamentos</h3>
+          <form id="upload-form-treinamentos">
+            <input type="file" name="file" id="file-input-treinamentos" required />
+            <button type="submit">Enviar Arquivo</button>
+          </form>
+          
+        </div>
+
+        <div class="card">
+          <h3>Área de Downloads</h3>
+          <ul id="file-list"></ul>
+        </div>
+        <div class="card">
+          <h3>Área de Downloads - Treinamentos</h3>
+          <ul id="file-list-treinamentos"></ul>
+        </div>
+
+        <button id="ranking-btn" onclick="window.open('https://autoeletricavassoural.my.canva.site/relatorio-geral', '_blank')">
+  RANKING
+</button>
+
+        <div class="card register-container" style="display:none;">
+          <h3>Cadastrar novo usuário</h3>
+          <form id="register-form">
+            <input type="text" id="new-username" placeholder="Novo usuário" required />
+            <input type="password" id="new-password" placeholder="Senha" required />
+            <select id="new-role">
+              <option value="funcionario">Funcionário</option>
+              <option value="moderador">Moderador</option>
+            </select>
+            <button type="submit">Cadastrar</button>
+          </form>
+          <p id="register-success" class="sucesso"></p>
+        </div>
+      </div>
+
+      
+    </div>
+
+    <script src="script.js"></script>
+  </div>
+</body>
+</html>
