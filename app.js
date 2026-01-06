@@ -1,9 +1,6 @@
 // app.js atualizado
 
 require('dotenv').config()
-console.log('DEBUG: AWS_REGION =', process.env.AWS_REGION);
-console.log('DEBUG: AWS_BUCKET_NAME =', process.env.AWS_BUCKET_NAME);
-console.log('DEBUG: AWS_ACCESS_KEY_ID =', process.env.AWS_ACCESS_KEY_ID ? 'DEFINED' : 'UNDEFINED');
 const express = require('express');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
