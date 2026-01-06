@@ -216,4 +216,3 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
 const s3 = require("../config/s3");
-const { PutObjectCommand } = require("@aws-sdk/client-s3");
