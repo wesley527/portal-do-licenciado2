@@ -91,7 +91,7 @@ app.post('/upload', async (req, res) => {
     await upload.done();
     res.send('Arquivo enviado com sucesso.');
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /upload:', err.message);
     res.status(500).send('Erro ao enviar arquivo.');
   }
 });
@@ -106,7 +106,7 @@ app.get('/files', async (req, res) => {
     const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('uploads/', '')).filter(name => name) : [];
     res.json(files);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /files:', err.message);
     res.status(500).json([]);
   }
 });
@@ -123,7 +123,7 @@ app.get('/download/:filename', async (req, res) => {
     res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
     data.Body.pipe(res);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /download:', err.message);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
@@ -138,7 +138,7 @@ app.delete('/delete/:filename', async (req, res) => {
     await s3Client.send(command);
     res.sendStatus(200);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /delete:', err.message);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
@@ -163,7 +163,7 @@ app.post('/upload-treinamentos', async (req, res) => {
     await upload.done();
     res.send('Arquivo enviado com sucesso.');
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /upload-treinamentos:', err.message);
     res.status(500).send('Erro ao enviar arquivo.');
   }
 });
@@ -178,7 +178,7 @@ app.get('/files-treinamentos', async (req, res) => {
     const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('treinamentos/', '')).filter(name => name) : [];
     res.json(files);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /files-treinamentos:', err.message);
     res.status(500).json([]);
   }
 });
@@ -195,7 +195,7 @@ app.get('/download-treinamentos/:filename', async (req, res) => {
     res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
     data.Body.pipe(res);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /download-treinamentos:', err.message);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
@@ -210,7 +210,7 @@ app.delete('/delete-treinamentos/:filename', async (req, res) => {
     await s3Client.send(command);
     res.sendStatus(200);
   } catch (err) {
-    console.error(err);
+    console.error('Erro em /delete-treinamentos:', err.message);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
@@ -218,3 +218,5 @@ app.delete('/delete-treinamentos/:filename', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+const s3 = require("../config/s3");
+const { PutObjectCommand } = require("@aws-sdk/client-s3");
