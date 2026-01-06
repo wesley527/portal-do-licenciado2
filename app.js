@@ -1,15 +1,29 @@
-// app.js atualizado
+// app.js — versão FINAL corrigida para Render + AWS S3
 
-require('dotenv').config()
+require('dotenv').config();
+
 const express = require('express');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
-const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
-const { Upload } = require('@aws-sdk/lib-storage');
-const app = express();
-const PORT = 3000;
 
+const {
+  S3Client,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} = require('@aws-sdk/client-s3');
+
+const { Upload } = require('@aws-sdk/lib-storage');
+
+const app = express();
+
+// ✅ PORTA CORRETA PARA O RENDER
+const PORT = process.env.PORT || 3000;
+
+// =======================
+// CONFIGURAÇÃO AWS S3
+// =======================
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -20,12 +34,15 @@ const s3Client = new S3Client({
 
 const bucketName = process.env.AWS_BUCKET_NAME;
 
+// =======================
+// USUÁRIOS (LOCAL)
+// =======================
 const usersFile = path.join(__dirname, 'users.json');
 
 if (!fs.existsSync(usersFile)) {
   const initialUsers = [
     { username: 'moderador', password: '1234', role: 'moderador' },
-    { username: 'funcionario', password: '1234', role: 'funcionario' }
+    { username: 'funcionario', password: '1234', role: 'funcionario' },
   ];
   fs.writeFileSync(usersFile, JSON.stringify(initialUsers, null, 2));
 }
@@ -34,19 +51,29 @@ function getUsersArray() {
   try {
     const data = JSON.parse(fs.readFileSync(usersFile));
     return Array.isArray(data) ? data : [];
-  } catch (err) {
+  } catch {
     return [];
   }
 }
 
+// =======================
+// MIDDLEWARES
+// =======================
 app.use(express.static('public'));
 app.use(express.json());
 app.use(fileUpload());
 
+// =======================
+// LOGIN / CADASTRO
+// =======================
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const users = getUsersArray();
-  const user = users.find(u => u.username === username && u.password === password);
+
+  const user = users.find(
+    (u) => u.username === username && u.password === password
+  );
+
   if (user) {
     res.json({ success: true, role: user.role });
   } else {
@@ -56,22 +83,32 @@ app.post('/login', (req, res) => {
 
 app.post('/register', (req, res) => {
   const { username, password, role } = req.body;
-  if (!username || !password || !role) return res.status(400).json({ success: false });
+  if (!username || !password || !role) {
+    return res.status(400).json({ success: false });
+  }
 
   const users = getUsersArray();
-  if (users.find(u => u.username === username)) {
-    return res.status(409).json({ success: false, message: 'Usuário já existe' });
+
+  if (users.find((u) => u.username === username)) {
+    return res
+      .status(409)
+      .json({ success: false, message: 'Usuário já existe' });
   }
 
   users.push({ username, password, role });
   fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+
   res.json({ success: true });
 });
 
+// =======================
+// UPLOAD / DOWNLOAD - UPLOADS
+// =======================
 app.post('/upload', async (req, res) => {
   if (!req.files || !req.files.file) {
     return res.status(400).send('Nenhum arquivo enviado.');
   }
+
   const file = req.files.file;
   const key = `uploads/${file.name}`;
 
@@ -85,10 +122,11 @@ app.post('/upload', async (req, res) => {
         ContentType: file.mimetype,
       },
     });
+
     await upload.done();
     res.send('Arquivo enviado com sucesso.');
   } catch (err) {
-    console.error('Erro em /upload:', err.message);
+    console.error('Erro em /upload:', err);
     res.status(500).send('Erro ao enviar arquivo.');
   }
 });
@@ -99,51 +137,72 @@ app.get('/files', async (req, res) => {
       Bucket: bucketName,
       Prefix: 'uploads/',
     });
+
     const data = await s3Client.send(command);
-    const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('uploads/', '')).filter(name => name) : [];
+    const files =
+      data.Contents?.map((obj) =>
+        obj.Key.replace('uploads/', '')
+      ).filter(Boolean) || [];
+
     res.json(files);
   } catch (err) {
-    console.error('Erro em /files:', err.message);
+    console.error('Erro em /files:', err);
     res.status(500).json([]);
   }
 });
 
 app.get('/download/:filename', async (req, res) => {
   const key = `uploads/${req.params.filename}`;
+
   try {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
+
     const data = await s3Client.send(command);
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
-    res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${req.params.filename}"`
+    );
+    res.setHeader(
+      'Content-Type',
+      data.ContentType || 'application/octet-stream'
+    );
+
     data.Body.pipe(res);
   } catch (err) {
-    console.error('Erro em /download:', err.message);
+    console.error('Erro em /download:', err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
 app.delete('/delete/:filename', async (req, res) => {
   const key = `uploads/${req.params.filename}`;
+
   try {
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
+
     await s3Client.send(command);
     res.sendStatus(200);
   } catch (err) {
-    console.error('Erro em /delete:', err.message);
+    console.error('Erro em /delete:', err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
+// =======================
+// UPLOAD / DOWNLOAD - TREINAMENTOS
+// =======================
 app.post('/upload-treinamentos', async (req, res) => {
   if (!req.files || !req.files.file) {
     return res.status(400).send('Nenhum arquivo enviado.');
   }
+
   const file = req.files.file;
   const key = `treinamentos/${file.name}`;
 
@@ -157,10 +216,11 @@ app.post('/upload-treinamentos', async (req, res) => {
         ContentType: file.mimetype,
       },
     });
+
     await upload.done();
     res.send('Arquivo enviado com sucesso.');
   } catch (err) {
-    console.error('Erro em /upload-treinamentos:', err.message);
+    console.error('Erro em /upload-treinamentos:', err);
     res.status(500).send('Erro ao enviar arquivo.');
   }
 });
@@ -171,48 +231,67 @@ app.get('/files-treinamentos', async (req, res) => {
       Bucket: bucketName,
       Prefix: 'treinamentos/',
     });
+
     const data = await s3Client.send(command);
-    const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('treinamentos/', '')).filter(name => name) : [];
+    const files =
+      data.Contents?.map((obj) =>
+        obj.Key.replace('treinamentos/', '')
+      ).filter(Boolean) || [];
+
     res.json(files);
   } catch (err) {
-    console.error('Erro em /files-treinamentos:', err.message);
+    console.error('Erro em /files-treinamentos:', err);
     res.status(500).json([]);
   }
 });
 
 app.get('/download-treinamentos/:filename', async (req, res) => {
   const key = `treinamentos/${req.params.filename}`;
+
   try {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
+
     const data = await s3Client.send(command);
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
-    res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${req.params.filename}"`
+    );
+    res.setHeader(
+      'Content-Type',
+      data.ContentType || 'application/octet-stream'
+    );
+
     data.Body.pipe(res);
   } catch (err) {
-    console.error('Erro em /download-treinamentos:', err.message);
+    console.error('Erro em /download-treinamentos:', err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
 app.delete('/delete-treinamentos/:filename', async (req, res) => {
   const key = `treinamentos/${req.params.filename}`;
+
   try {
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
+
     await s3Client.send(command);
     res.sendStatus(200);
   } catch (err) {
-    console.error('Erro em /delete-treinamentos:', err.message);
+    console.error('Erro em /delete-treinamentos:', err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
+// =======================
+// START SERVER
+// =======================
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
-const s3 = require("../config/s3");
