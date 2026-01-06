@@ -1,15 +1,26 @@
 // app.js atualizado
 
+require('dotenv').config()
 const express = require('express');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
+const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
 const app = express();
 const PORT = 3000;
 
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
+const bucketName = process.env.AWS_BUCKET_NAME;
+
 const usersFile = path.join(__dirname, 'users.json');
-const uploadDir = path.join(__dirname, 'uploads');
-const treinamentosDir = path.join(__dirname, 'uploads', 'treinamentos');
 
 if (!fs.existsSync(usersFile)) {
   const initialUsers = [
@@ -17,14 +28,6 @@ if (!fs.existsSync(usersFile)) {
     { username: 'funcionario', password: '1234', role: 'funcionario' }
   ];
   fs.writeFileSync(usersFile, JSON.stringify(initialUsers, null, 2));
-}
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-if (!fs.existsSync(treinamentosDir)) {
-  fs.mkdirSync(treinamentosDir);
 }
 
 function getUsersArray() {
@@ -65,90 +68,146 @@ app.post('/register', (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/upload', (req, res) => {
+app.post('/upload', async (req, res) => {
   if (!req.files || !req.files.file) {
     return res.status(400).send('Nenhum arquivo enviado.');
   }
   const file = req.files.file;
-  const uploadPath = path.join(uploadDir, file.name);
+  const key = `uploads/${file.name}`;
 
-  file.mv(uploadPath, err => {
-    if (err) return res.status(500).send(err);
+  try {
+    const upload = new Upload({
+      client: s3Client,
+      params: {
+        Bucket: bucketName,
+        Key: key,
+        Body: file.data,
+        ContentType: file.mimetype,
+      },
+    });
+    await upload.done();
     res.send('Arquivo enviado com sucesso.');
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao enviar arquivo.');
+  }
 });
 
-app.get('/files', (req, res) => {
-  fs.readdir(uploadDir, (err, files) => {
-    if (err) return res.status(500).json([]);
-    const fileStats = files.map(file => {
-      const filePath = path.join(uploadDir, file);
-      const stat = fs.statSync(filePath);
-      return { name: file, isFile: stat.isFile() };
-    }).filter(item => item.isFile).map(item => item.name);
-    res.json(fileStats);
-  });
+app.get('/files', async (req, res) => {
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: 'uploads/',
+    });
+    const data = await s3Client.send(command);
+    const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('uploads/', '')).filter(name => name) : [];
+    res.json(files);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
 });
 
-app.get('/download/:filename', (req, res) => {
-  const filePath = path.join(uploadDir, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    res.download(filePath);
-  } else {
+app.get('/download/:filename', async (req, res) => {
+  const key = `uploads/${req.params.filename}`;
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    const data = await s3Client.send(command);
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+    res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
+    data.Body.pipe(res);
+  } catch (err) {
+    console.error(err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
-app.delete('/delete/:filename', (req, res) => {
-  const filePath = path.join(uploadDir, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+app.delete('/delete/:filename', async (req, res) => {
+  const key = `uploads/${req.params.filename}`;
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    await s3Client.send(command);
     res.sendStatus(200);
-  } else {
+  } catch (err) {
+    console.error(err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
-app.post('/upload-treinamentos', (req, res) => {
+app.post('/upload-treinamentos', async (req, res) => {
   if (!req.files || !req.files.file) {
     return res.status(400).send('Nenhum arquivo enviado.');
   }
   const file = req.files.file;
-  const uploadPath = path.join(treinamentosDir, file.name);
+  const key = `treinamentos/${file.name}`;
 
-  file.mv(uploadPath, err => {
-    if (err) return res.status(500).send(err);
+  try {
+    const upload = new Upload({
+      client: s3Client,
+      params: {
+        Bucket: bucketName,
+        Key: key,
+        Body: file.data,
+        ContentType: file.mimetype,
+      },
+    });
+    await upload.done();
     res.send('Arquivo enviado com sucesso.');
-  });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao enviar arquivo.');
+  }
 });
 
-app.get('/files-treinamentos', (req, res) => {
-  fs.readdir(treinamentosDir, (err, files) => {
-    if (err) return res.status(500).json([]);
-    const fileStats = files.map(file => {
-      const filePath = path.join(treinamentosDir, file);
-      const stat = fs.statSync(filePath);
-      return { name: file, isFile: stat.isFile() };
-    }).filter(item => item.isFile).map(item => item.name);
-    res.json(fileStats);
-  });
+app.get('/files-treinamentos', async (req, res) => {
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: 'treinamentos/',
+    });
+    const data = await s3Client.send(command);
+    const files = data.Contents ? data.Contents.map(obj => obj.Key.replace('treinamentos/', '')).filter(name => name) : [];
+    res.json(files);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
 });
 
-app.get('/download-treinamentos/:filename', (req, res) => {
-  const filePath = path.join(treinamentosDir, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    res.download(filePath);
-  } else {
+app.get('/download-treinamentos/:filename', async (req, res) => {
+  const key = `treinamentos/${req.params.filename}`;
+  try {
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    const data = await s3Client.send(command);
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
+    res.setHeader('Content-Type', data.ContentType || 'application/octet-stream');
+    data.Body.pipe(res);
+  } catch (err) {
+    console.error(err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
 
-app.delete('/delete-treinamentos/:filename', (req, res) => {
-  const filePath = path.join(treinamentosDir, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+app.delete('/delete-treinamentos/:filename', async (req, res) => {
+  const key = `treinamentos/${req.params.filename}`;
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    await s3Client.send(command);
     res.sendStatus(200);
-  } else {
+  } catch (err) {
+    console.error(err);
     res.status(404).send('Arquivo não encontrado.');
   }
 });
