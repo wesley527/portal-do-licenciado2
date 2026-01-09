@@ -1,68 +1,53 @@
-// app.js — versão FINAL corrigida para Render + AWS S3
+// app.js — FINAL DEFINITIVO (Render + MongoDB + AWS S3)
 
 require('dotenv').config()
 
+// =======================
+// IMPORTS
+// =======================
 const express = require('express')
 const mongoose = require('mongoose')
 const fileUpload = require('express-fileupload')
 const fs = require('fs')
 const path = require('path')
 
-const app = express()
-
-// =====================
-// Middlewares
-// =====================
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-app.use(fileUpload())
-
-// =====================
-// Debug Render
-// =====================
-console.log('MONGO_URI:', process.env.MONGO_URI ? 'OK' : 'UNDEFINED')
-
-// =====================
-// MongoDB
-// =====================
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB conectado com sucesso'))
-  .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err))
-
-// =====================
-// Rotas básicas
-// =====================
-app.get('/', (req, res) => {
-  res.send('Servidor rodando 🚀')
-})
-
-// =====================
-// Porta (Render usa PORT)
-// =====================
-const PORT = process.env.PORT || 3000
-app.listen(PORT, () => {
-  console.log(`🔥 Servidor rodando na porta ${PORT}`)
-})
-
-
-
-
 const {
   S3Client,
   GetObjectCommand,
   ListObjectsV2Command,
   DeleteObjectCommand,
-} = require('@aws-sdk/client-s3');
+} = require('@aws-sdk/client-s3')
 
-const { Upload } = require('@aws-sdk/lib-storage');
-
-const app = express();
-
-// ✅ PORTA CORRETA PARA O RENDER
-const PORT = process.env.PORT || 3000;
+const { Upload } = require('@aws-sdk/lib-storage')
 
 // =======================
-// CONFIGURAÇÃO AWS S3
+// APP
+// =======================
+const app = express()
+
+// =======================
+// MIDDLEWARES
+// =======================
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(fileUpload())
+app.use(express.static('public'))
+
+// =======================
+// DEBUG RENDER
+// =======================
+console.log('MONGO_URI:', process.env.MONGO_URI ? 'OK' : 'UNDEFINED')
+
+// =======================
+// MONGODB
+// =======================
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB conectado'))
+  .catch((err) => console.error('❌ Erro MongoDB:', err))
+
+// =======================
+// AWS S3
 // =======================
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -70,268 +55,147 @@ const s3Client = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
-});
+})
 
-const bucketName = process.env.AWS_BUCKET_NAME;
+const bucketName = process.env.AWS_BUCKET_NAME
 
 // =======================
 // USUÁRIOS (LOCAL)
 // =======================
-const usersFile = path.join(__dirname, 'users.json');
+const usersFile = path.join(__dirname, 'users.json')
 
 if (!fs.existsSync(usersFile)) {
-  const initialUsers = [
-    { username: 'moderador', password: '1234', role: 'moderador' },
-    { username: 'funcionario', password: '1234', role: 'funcionario' },
-  ];
-  fs.writeFileSync(usersFile, JSON.stringify(initialUsers, null, 2));
+  fs.writeFileSync(
+    usersFile,
+    JSON.stringify(
+      [
+        { username: 'moderador', password: '1234', role: 'moderador' },
+        { username: 'funcionario', password: '1234', role: 'funcionario' },
+      ],
+      null,
+      2
+    )
+  )
 }
 
 function getUsersArray() {
   try {
-    const data = JSON.parse(fs.readFileSync(usersFile));
-    return Array.isArray(data) ? data : [];
+    return JSON.parse(fs.readFileSync(usersFile))
   } catch {
-    return [];
+    return []
   }
 }
 
 // =======================
-// MIDDLEWARES
+// ROTAS BÁSICAS
 // =======================
-app.use(express.static('public'));
-app.use(express.json());
-app.use(fileUpload());
+app.get('/', (req, res) => {
+  res.send('Servidor rodando 🚀')
+})
 
 // =======================
 // LOGIN / CADASTRO
 // =======================
 app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  const users = getUsersArray();
-
-  const user = users.find(
+  const { username, password } = req.body
+  const user = getUsersArray().find(
     (u) => u.username === username && u.password === password
-  );
-
-  if (user) {
-    res.json({ success: true, role: user.role });
-  } else {
-    res.json({ success: false });
-  }
-});
+  )
+  res.json(user ? { success: true, role: user.role } : { success: false })
+})
 
 app.post('/register', (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password || !role) {
-    return res.status(400).json({ success: false });
-  }
-
-  const users = getUsersArray();
+  const { username, password, role } = req.body
+  const users = getUsersArray()
 
   if (users.find((u) => u.username === username)) {
-    return res
-      .status(409)
-      .json({ success: false, message: 'Usuário já existe' });
+    return res.status(409).json({ success: false })
   }
 
-  users.push({ username, password, role });
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
-
-  res.json({ success: true });
-});
+  users.push({ username, password, role })
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2))
+  res.json({ success: true })
+})
 
 // =======================
-// UPLOAD / DOWNLOAD - UPLOADS
+// FUNÇÃO GENÉRICA S3
+// =======================
+async function uploadToS3(file, folder) {
+  const upload = new Upload({
+    client: s3Client,
+    params: {
+      Bucket: bucketName,
+      Key: `${folder}/${file.name}`,
+      Body: file.data,
+      ContentType: file.mimetype,
+    },
+  })
+  await upload.done()
+}
+
+// =======================
+// UPLOADS
 // =======================
 app.post('/upload', async (req, res) => {
-  if (!req.files || !req.files.file) {
-    return res.status(400).send('Nenhum arquivo enviado.');
-  }
-
-  const file = req.files.file;
-  const key = `uploads/${file.name}`;
-
   try {
-    const upload = new Upload({
-      client: s3Client,
-      params: {
-        Bucket: bucketName,
-        Key: key,
-        Body: file.data,
-        ContentType: file.mimetype,
-      },
-    });
-
-    await upload.done();
-    res.send('Arquivo enviado com sucesso.');
-  } catch (err) {
-    console.error('Erro em /upload:', err);
-    res.status(500).send('Erro ao enviar arquivo.');
+    await uploadToS3(req.files.file, 'uploads')
+    res.sendStatus(200)
+  } catch {
+    res.sendStatus(500)
   }
-});
+})
 
-app.get('/files', async (req, res) => {
-  try {
-    const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      Prefix: 'uploads/',
-    });
-
-    const data = await s3Client.send(command);
-    const files =
-      data.Contents?.map((obj) =>
-        obj.Key.replace('uploads/', '')
-      ).filter(Boolean) || [];
-
-    res.json(files);
-  } catch (err) {
-    console.error('Erro em /files:', err);
-    res.status(500).json([]);
-  }
-});
-
-app.get('/download/:filename', async (req, res) => {
-  const key = `uploads/${req.params.filename}`;
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-    });
-
-    const data = await s3Client.send(command);
-
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${req.params.filename}"`
-    );
-    res.setHeader(
-      'Content-Type',
-      data.ContentType || 'application/octet-stream'
-    );
-
-    data.Body.pipe(res);
-  } catch (err) {
-    console.error('Erro em /download:', err);
-    res.status(404).send('Arquivo não encontrado.');
-  }
-});
-
-app.delete('/delete/:filename', async (req, res) => {
-  const key = `uploads/${req.params.filename}`;
-
-  try {
-    const command = new DeleteObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-    });
-
-    await s3Client.send(command);
-    res.sendStatus(200);
-  } catch (err) {
-    console.error('Erro em /delete:', err);
-    res.status(404).send('Arquivo não encontrado.');
-  }
-});
-
-// =======================
-// UPLOAD / DOWNLOAD - TREINAMENTOS
-// =======================
 app.post('/upload-treinamentos', async (req, res) => {
-  if (!req.files || !req.files.file) {
-    return res.status(400).send('Nenhum arquivo enviado.');
-  }
-
-  const file = req.files.file;
-  const key = `treinamentos/${file.name}`;
-
   try {
-    const upload = new Upload({
-      client: s3Client,
-      params: {
-        Bucket: bucketName,
-        Key: key,
-        Body: file.data,
-        ContentType: file.mimetype,
-      },
-    });
-
-    await upload.done();
-    res.send('Arquivo enviado com sucesso.');
-  } catch (err) {
-    console.error('Erro em /upload-treinamentos:', err);
-    res.status(500).send('Erro ao enviar arquivo.');
+    await uploadToS3(req.files.file, 'treinamentos')
+    res.sendStatus(200)
+  } catch {
+    res.sendStatus(500)
   }
-});
+})
 
-app.get('/files-treinamentos', async (req, res) => {
-  try {
-    const command = new ListObjectsV2Command({
+// =======================
+// LISTAGEM
+// =======================
+async function listFiles(prefix) {
+  const data = await s3Client.send(
+    new ListObjectsV2Command({ Bucket: bucketName, Prefix: prefix })
+  )
+  return data.Contents?.map((o) => o.Key.replace(prefix, '')).filter(Boolean) || []
+}
+
+app.get('/files', async (_, res) => res.json(await listFiles('uploads/')))
+app.get('/files-treinamentos', async (_, res) =>
+  res.json(await listFiles('treinamentos/'))
+)
+
+// =======================
+// DOWNLOAD / DELETE
+// =======================
+app.get('/download/:folder/:file', async (req, res) => {
+  const data = await s3Client.send(
+    new GetObjectCommand({
       Bucket: bucketName,
-      Prefix: 'treinamentos/',
-    });
+      Key: `${req.params.folder}/${req.params.file}`,
+    })
+  )
+  data.Body.pipe(res)
+})
 
-    const data = await s3Client.send(command);
-    const files =
-      data.Contents?.map((obj) =>
-        obj.Key.replace('treinamentos/', '')
-      ).filter(Boolean) || [];
-
-    res.json(files);
-  } catch (err) {
-    console.error('Erro em /files-treinamentos:', err);
-    res.status(500).json([]);
-  }
-});
-
-app.get('/download-treinamentos/:filename', async (req, res) => {
-  const key = `treinamentos/${req.params.filename}`;
-
-  try {
-    const command = new GetObjectCommand({
+app.delete('/delete/:folder/:file', async (req, res) => {
+  await s3Client.send(
+    new DeleteObjectCommand({
       Bucket: bucketName,
-      Key: key,
-    });
-
-    const data = await s3Client.send(command);
-
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${req.params.filename}"`
-    );
-    res.setHeader(
-      'Content-Type',
-      data.ContentType || 'application/octet-stream'
-    );
-
-    data.Body.pipe(res);
-  } catch (err) {
-    console.error('Erro em /download-treinamentos:', err);
-    res.status(404).send('Arquivo não encontrado.');
-  }
-});
-
-app.delete('/delete-treinamentos/:filename', async (req, res) => {
-  const key = `treinamentos/${req.params.filename}`;
-
-  try {
-    const command = new DeleteObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-    });
-
-    await s3Client.send(command);
-    res.sendStatus(200);
-  } catch (err) {
-    console.error('Erro em /delete-treinamentos:', err);
-    res.status(404).send('Arquivo não encontrado.');
-  }
-});
+      Key: `${req.params.folder}/${req.params.file}`,
+    })
+  )
+  res.sendStatus(200)
+})
 
 // =======================
 // START SERVER
 // =======================
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () =>
+  console.log(`🔥 Servidor rodando na porta ${PORT}`)
+)
