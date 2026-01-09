@@ -1,13 +1,9 @@
 {
   "name": "portal-do-licenciado2",
   "version": "1.0.0",
-  "type": "module",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
-  },
-  "engines": {
-    "node": ">=22"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.962.0",
