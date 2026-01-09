@@ -1,6 +1,6 @@
 // app.js — versão FINAL corrigida para Render + AWS S3
 
-import mongoose from "mongoose";
+
 
 console.log("MONGO_URI:", process.env.MONGO_URI);
 
