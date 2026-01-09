@@ -27,7 +27,7 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const app = express();
 
 // ✅ PORTA CORRETA PARA O RENDER
-const PORT = process.env.PORT || 3000;
+
 
 // =======================
 // CONFIGURAÇÃO AWS S3
