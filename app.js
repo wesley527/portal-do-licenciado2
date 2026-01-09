@@ -1,11 +1,19 @@
 // app.js — versão FINAL corrigida para Render + AWS S3
 
+console.log('MONGO_URI:', process.env.MONGO_URI);
+
 require('dotenv').config();
 
 const express = require('express');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB conectado com sucesso'))
+  .catch((err) => console.error('Erro ao conectar no MongoDB', err));
 
 const {
   S3Client,
