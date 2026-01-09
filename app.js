@@ -1,22 +1,48 @@
 // app.js — versão FINAL corrigida para Render + AWS S3
 
-
 require('dotenv').config()
+
 const express = require('express')
 const mongoose = require('mongoose')
+const fileUpload = require('express-fileupload')
+const fs = require('fs')
+const path = require('path')
 
 const app = express()
 
-console.log('MONGO_URI:', process.env.MONGO_URI)
+// =====================
+// Middlewares
+// =====================
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(fileUpload())
 
+// =====================
+// Debug Render
+// =====================
+console.log('MONGO_URI:', process.env.MONGO_URI ? 'OK' : 'UNDEFINED')
+
+// =====================
+// MongoDB
+// =====================
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB conectado'))
-  .catch(err => console.error('Erro ao conectar no MongoDB:', err))
+  .then(() => console.log('✅ MongoDB conectado com sucesso'))
+  .catch(err => console.error('❌ Erro ao conectar no MongoDB:', err))
 
-const express = require('express');
-const fileUpload = require('express-fileupload');
-const fs = require('fs');
-const path = require('path');
+// =====================
+// Rotas básicas
+// =====================
+app.get('/', (req, res) => {
+  res.send('Servidor rodando 🚀')
+})
+
+// =====================
+// Porta (Render usa PORT)
+// =====================
+const PORT = process.env.PORT || 3000
+app.listen(PORT, () => {
+  console.log(`🔥 Servidor rodando na porta ${PORT}`)
+})
 
 
 
