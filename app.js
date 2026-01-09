@@ -1,39 +1,46 @@
-// app.js — versão FINAL corrigida para Render + AWS S3
+// =======================
+// app.js — versão FINAL
+// Render + Node 22 + MongoDB + AWS S3
+// =======================
 
-import mongoose from "mongoose";
+import 'dotenv/config';
+import express from 'express';
+import fileUpload from 'express-fileupload';
+import fs from 'fs';
+import path from 'path';
+import mongoose from 'mongoose';
+import { fileURLToPath } from 'url';
 
-console.log("MONGO_URI:", process.env.MONGO_URI);
-
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB conectado com sucesso"))
-  .catch(err => console.error("Erro ao conectar no MongoDB", err));
-
-require('dotenv').config();
-
-const express = require('express');
-const fileUpload = require('express-fileupload');
-const fs = require('fs');
-const path = require('path');
-const mongoose = require('mongoose');
-
-
-
-const {
+import {
   S3Client,
   GetObjectCommand,
   ListObjectsV2Command,
   DeleteObjectCommand,
-} = require('@aws-sdk/client-s3');
+} from '@aws-sdk/client-s3';
 
-const { Upload } = require('@aws-sdk/lib-storage');
-
-const app = express();
-
-// ✅ PORTA CORRETA PARA O RENDER
-const PORT = process.env.PORT || 3000;
+import { Upload } from '@aws-sdk/lib-storage';
 
 // =======================
-// CONFIGURAÇÃO AWS S3
+// CONFIGURAÇÕES BÁSICAS
+// =======================
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// __dirname compatível com ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// =======================
+// MONGODB
+// =======================
+console.log('MONGO_URI:', process.env.MONGO_URI);
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('MongoDB conectado com sucesso'))
+  .catch(err => console.error('Erro ao conectar no MongoDB:', err));
+
+// =======================
+// AWS S3
 // =======================
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -44,6 +51,13 @@ const s3Client = new S3Client({
 });
 
 const bucketName = process.env.AWS_BUCKET_NAME;
+
+// =======================
+// MIDDLEWARES
+// =======================
+app.use(express.static('public'));
+app.use(express.json());
+app.use(fileUpload());
 
 // =======================
 // USUÁRIOS (LOCAL)
@@ -68,13 +82,6 @@ function getUsersArray() {
 }
 
 // =======================
-// MIDDLEWARES
-// =======================
-app.use(express.static('public'));
-app.use(express.json());
-app.use(fileUpload());
-
-// =======================
 // LOGIN / CADASTRO
 // =======================
 app.post('/login', (req, res) => {
@@ -82,7 +89,7 @@ app.post('/login', (req, res) => {
   const users = getUsersArray();
 
   const user = users.find(
-    (u) => u.username === username && u.password === password
+    u => u.username === username && u.password === password
   );
 
   if (user) {
@@ -94,16 +101,18 @@ app.post('/login', (req, res) => {
 
 app.post('/register', (req, res) => {
   const { username, password, role } = req.body;
+
   if (!username || !password || !role) {
     return res.status(400).json({ success: false });
   }
 
   const users = getUsersArray();
 
-  if (users.find((u) => u.username === username)) {
-    return res
-      .status(409)
-      .json({ success: false, message: 'Usuário já existe' });
+  if (users.find(u => u.username === username)) {
+    return res.status(409).json({
+      success: false,
+      message: 'Usuário já existe',
+    });
   }
 
   users.push({ username, password, role });
@@ -150,10 +159,9 @@ app.get('/files', async (req, res) => {
     });
 
     const data = await s3Client.send(command);
-    const files =
-      data.Contents?.map((obj) =>
-        obj.Key.replace('uploads/', '')
-      ).filter(Boolean) || [];
+    const files = data.Contents?.map(obj =>
+      obj.Key.replace('uploads/', '')
+    ).filter(Boolean) || [];
 
     res.json(files);
   } catch (err) {
@@ -244,10 +252,9 @@ app.get('/files-treinamentos', async (req, res) => {
     });
 
     const data = await s3Client.send(command);
-    const files =
-      data.Contents?.map((obj) =>
-        obj.Key.replace('treinamentos/', '')
-      ).filter(Boolean) || [];
+    const files = data.Contents?.map(obj =>
+      obj.Key.replace('treinamentos/', '')
+    ).filter(Boolean) || [];
 
     res.json(files);
   } catch (err) {
