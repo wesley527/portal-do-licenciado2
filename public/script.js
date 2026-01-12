@@ -186,29 +186,38 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
 
-  // =======================
-  // CADASTRO DE USUÁRIO
-  // =======================
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault()
+ // =======================
+// CADASTRO DE USUÁRIO
+// =======================
+registerForm.addEventListener('submit', async (e) => {
+  e.preventDefault()
 
-    const username = document.getElementById('new-username').value.trim()
-    const password = document.getElementById('new-password').value.trim()
-    const role = document.getElementById('new-role').value
+  const username = document.getElementById('new-username').value.trim()
+  const password = document.getElementById('new-password').value.trim()
+  const role = document.getElementById('new-role').value
+  const feedback = document.getElementById('register-feedback')
 
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, role }),
-    })
-
-    const data = await res.json()
-
-    if (data.success) {
-      showToast('👤 Usuário criado com sucesso!')
-      registerForm.reset()
-    } else {
-      showToast('❌ Erro ao criar usuário', 'error')
-    }
+  const res = await fetch('/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, role }),
   })
+
+  const data = await res.json()
+
+  feedback.classList.remove('hidden', 'success', 'error')
+
+  if (data.success) {
+    feedback.textContent = '✅ Usuário cadastrado com sucesso'
+    feedback.classList.add('success')
+    registerForm.reset()
+  } else {
+    feedback.textContent = '❌ Erro ao cadastrar usuário'
+    feedback.classList.add('error')
+  }
+
+  setTimeout(() => {
+    feedback.classList.add('hidden')
+  }, 3000)
+})
 })

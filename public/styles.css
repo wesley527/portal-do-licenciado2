@@ -437,7 +437,39 @@ button:hover {
     transform: translateX(0);
   }
 }
+.register-feedback {
+  margin-top: 12px;
+  font-size: 14px;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  animation: fadeUp 0.4s ease;
+}
 
+.register-feedback.success {
+  background: rgba(0, 200, 120, 0.15);
+  color: #00c878;
+}
+
+.register-feedback.error {
+  background: rgba(255, 60, 60, 0.15);
+  color: #ff3c3c;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
   /* Aqui está o card de login ajustado só para celular */
   #login-card {
