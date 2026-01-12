@@ -12,7 +12,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let currentUser = null
 
+  // =======================
+  // TOAST
+  // =======================
+  function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast')
+    toast.textContent = message
+    toast.className = `toast ${type}`
+    toast.classList.remove('hidden')
+
+    setTimeout(() => {
+      toast.classList.add('hidden')
+    }, 3000)
+  }
+
+  // =======================
   // LOGIN
+  // =======================
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault()
 
@@ -28,7 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await res.json()
 
-      if (!data.success) return alert('Usuário ou senha inválidos.')
+      if (!data.success) {
+        showToast('❌ Usuário ou senha inválidos', 'error')
+        return
+      }
 
       currentUser = { username, role: data.role }
       userNameSpan.textContent = username
@@ -39,23 +58,38 @@ document.addEventListener('DOMContentLoaded', () => {
         registerContainer.style.display = 'block'
       }
 
+      showToast('✅ Login realizado com sucesso!')
       loadFiles()
       loadFilesTreinamentos()
     } catch {
-      alert('Erro ao tentar login.')
+      showToast('❌ Erro ao tentar login', 'error')
     }
   })
 
+  // =======================
   // UPLOAD
+  // =======================
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault()
     const formData = new FormData(uploadForm)
 
-    const res = await fetch('/upload', { method: 'POST', body: formData })
-    res.ok ? loadFiles() : alert('Erro no upload')
+    const res = await fetch('/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (res.ok) {
+      showToast('📁 Arquivo enviado com sucesso!')
+      uploadForm.reset()
+      loadFiles()
+    } else {
+      showToast('❌ Erro no upload', 'error')
+    }
   })
 
+  // =======================
   // UPLOAD TREINAMENTOS
+  // =======================
   uploadFormTreinamentos.addEventListener('submit', async (e) => {
     e.preventDefault()
     const formData = new FormData(uploadFormTreinamentos)
@@ -65,10 +99,18 @@ document.addEventListener('DOMContentLoaded', () => {
       body: formData,
     })
 
-    res.ok ? loadFilesTreinamentos() : alert('Erro no upload')
+    if (res.ok) {
+      showToast('🎓 Treinamento enviado com sucesso!')
+      uploadFormTreinamentos.reset()
+      loadFilesTreinamentos()
+    } else {
+      showToast('❌ Erro no upload', 'error')
+    }
   })
 
+  // =======================
   // LISTAR ARQUIVOS
+  // =======================
   async function loadFiles() {
     const res = await fetch('/files')
     const files = await res.json()
@@ -77,8 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     files.forEach((file) => {
       const encoded = encodeURIComponent(file)
-
       const li = document.createElement('li')
+
       li.innerHTML = `
         <span>${file}</span>
         <button onclick="window.location.href='/download/${encoded}'">Download</button>
@@ -88,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : ''
         }
       `
+
       fileList.appendChild(li)
     })
 
@@ -95,12 +138,17 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.onclick = async () => {
         if (!confirm('Deseja excluir este arquivo?')) return
         const res = await fetch(`/delete/${btn.dataset.file}`, { method: 'DELETE' })
-        if (res.ok) loadFiles()
+        if (res.ok) {
+          showToast('🗑️ Arquivo excluído')
+          loadFiles()
+        }
       }
     })
   }
 
+  // =======================
   // LISTAR TREINAMENTOS
+  // =======================
   async function loadFilesTreinamentos() {
     const res = await fetch('/files-treinamentos')
     const files = await res.json()
@@ -109,8 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     files.forEach((file) => {
       const encoded = encodeURIComponent(file)
-
       const li = document.createElement('li')
+
       li.innerHTML = `
         <span>${file}</span>
         <button onclick="window.location.href='/download-treinamentos/${encoded}'">Download</button>
@@ -120,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : ''
         }
       `
+
       fileListTreinamentos.appendChild(li)
     })
 
@@ -129,12 +178,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/delete-treinamentos/${btn.dataset.file}`, {
           method: 'DELETE',
         })
-        if (res.ok) loadFilesTreinamentos()
+        if (res.ok) {
+          showToast('🗑️ Treinamento excluído')
+          loadFilesTreinamentos()
+        }
       }
     })
   }
 
-  // CADASTRO
+  // =======================
+  // CADASTRO DE USUÁRIO
+  // =======================
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault()
 
@@ -149,6 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
     })
 
     const data = await res.json()
-    alert(data.success ? 'Usuário criado!' : data.message)
+
+    if (data.success) {
+      showToast('👤 Usuário criado com sucesso!')
+      registerForm.reset()
+    } else {
+      showToast('❌ Erro ao criar usuário', 'error')
+    }
   })
 })
