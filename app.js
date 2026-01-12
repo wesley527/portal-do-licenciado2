@@ -6,8 +6,6 @@ require('dotenv').config()
 const express = require('express')
 const mongoose = require('mongoose')
 const fileUpload = require('express-fileupload')
-const fs = require('fs')
-const path = require('path')
 
 const {
   S3Client,
@@ -22,7 +20,7 @@ const { Upload } = require('@aws-sdk/lib-storage')
 // APP
 // =======================
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 10000
 
 // =======================
 // MIDDLEWARES
@@ -33,17 +31,38 @@ app.use(fileUpload())
 app.use(express.static('public'))
 
 // =======================
-// DEBUG
-// =======================
-console.log('MONGO_URI:', process.env.MONGO_URI ? 'OK' : 'UNDEFINED')
-
-// =======================
-// MONGODB
+// MONGODB CONNECTION
 // =======================
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB conectado'))
+  .connect(
+    'mongodb+srv://avanceultra_db_user:ddMwtOuSv57oNmH4@cluster0.09kjxkc.mongodb.net/portaldb',
+    {
+      dbName: 'portaldb',
+    }
+  )
+  .then(() => console.log('✅ MongoDB conectado em portaldb'))
   .catch((err) => console.error('❌ Erro MongoDB:', err))
+
+// =======================
+// USER MODEL
+// =======================
+const UserSchema = new mongoose.Schema(
+  {
+    username: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+    role: { type: String, required: true },
+    lastLogin: Date,
+    loginHistory: [
+      {
+        date: Date,
+        ip: String,
+      },
+    ],
+  },
+  { timestamps: true }
+)
+
+const User = mongoose.model('User', UserSchema)
 
 // =======================
 // AWS S3
@@ -59,37 +78,6 @@ const s3Client = new S3Client({
 const bucketName = process.env.AWS_BUCKET_NAME
 
 // =======================
-// USUÁRIOS (JSON LOCAL)
-// =======================
-const usersFile = path.join(__dirname, 'users.json')
-
-if (!fs.existsSync(usersFile)) {
-  fs.writeFileSync(
-    usersFile,
-    JSON.stringify(
-      [
-        { username: 'moderador', password: '1234', role: 'moderador' },
-        { username: 'funcionario', password: '1234', role: 'funcionario' },
-      ],
-      null,
-      2
-    )
-  )
-}
-
-function getUsers() {
-  try {
-    return JSON.parse(fs.readFileSync(usersFile))
-  } catch {
-    return []
-  }
-}
-
-function saveUsers(users) {
-  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2))
-}
-
-// =======================
 // ROTAS BÁSICAS
 // =======================
 app.get('/', (_, res) => {
@@ -97,17 +85,21 @@ app.get('/', (_, res) => {
 })
 
 // =======================
-// LOGIN / CADASTRO
+// LOGIN
 // =======================
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body
-  const users = getUsers()
 
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  )
-
+  const user = await User.findOne({ username, password })
   if (!user) return res.json({ success: false })
+
+  user.lastLogin = new Date()
+  user.loginHistory.push({
+    date: new Date(),
+    ip: req.ip,
+  })
+
+  await user.save()
 
   res.json({
     success: true,
@@ -116,23 +108,25 @@ app.post('/api/login', (req, res) => {
   })
 })
 
-app.post('/api/register', (req, res) => {
+// =======================
+// REGISTER
+// =======================
+app.post('/api/register', async (req, res) => {
   const { username, password, role } = req.body
+
   if (!username || !password || !role)
     return res.status(400).json({ success: false })
 
-  const users = getUsers()
-  if (users.find((u) => u.username === username))
-    return res.status(409).json({ success: false })
+  const exists = await User.findOne({ username })
+  if (exists) return res.status(409).json({ success: false })
 
-  users.push({ username, password, role })
-  saveUsers(users)
+  await User.create({ username, password, role })
 
   res.json({ success: true })
 })
 
 // =======================
-// FUNÇÕES S3
+// S3 FUNCTIONS
 // =======================
 async function uploadToS3(file, folder) {
   const upload = new Upload({
@@ -151,9 +145,7 @@ async function listFiles(prefix) {
   const data = await s3Client.send(
     new ListObjectsV2Command({ Bucket: bucketName, Prefix: prefix })
   )
-  return (
-    data.Contents?.map((o) => o.Key.replace(prefix, '')).filter(Boolean) || []
-  )
+  return data.Contents?.map((o) => o.Key.replace(prefix, '')).filter(Boolean) || []
 }
 
 // =======================
@@ -161,107 +153,79 @@ async function listFiles(prefix) {
 // =======================
 app.post('/upload', async (req, res) => {
   if (!req.files?.file) return res.sendStatus(400)
-  try {
-    await uploadToS3(req.files.file, 'uploads')
-    res.sendStatus(200)
-  } catch (err) {
-    console.error(err)
-    res.sendStatus(500)
-  }
+  await uploadToS3(req.files.file, 'uploads')
+  res.sendStatus(200)
 })
 
 app.post('/upload-treinamentos', async (req, res) => {
   if (!req.files?.file) return res.sendStatus(400)
-  try {
-    await uploadToS3(req.files.file, 'treinamentos')
-    res.sendStatus(200)
-  } catch (err) {
-    console.error(err)
-    res.sendStatus(500)
-  }
+  await uploadToS3(req.files.file, 'treinamentos')
+  res.sendStatus(200)
 })
 
 // =======================
 // LISTAGEM
 // =======================
-app.get('/files', async (_, res) => {
+app.get('/files', async (_, res) =>
   res.json(await listFiles('uploads/'))
-})
+)
 
-app.get('/files-treinamentos', async (_, res) => {
+app.get('/files-treinamentos', async (_, res) =>
   res.json(await listFiles('treinamentos/'))
-})
+)
 
 // =======================
 // DOWNLOAD
 // =======================
 app.get('/download/:filename', async (req, res) => {
-  try {
-    const data = await s3Client.send(
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: `uploads/${req.params.filename}`,
-      })
-    )
-
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${req.params.filename}"`
-    )
-    data.Body.pipe(res)
-  } catch {
-    res.sendStatus(404)
-  }
+  const data = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: `uploads/${req.params.filename}`,
+    })
+  )
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${req.params.filename}"`
+  )
+  data.Body.pipe(res)
 })
 
 app.get('/download-treinamentos/:filename', async (req, res) => {
-  try {
-    const data = await s3Client.send(
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: `treinamentos/${req.params.filename}`,
-      })
-    )
-
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${req.params.filename}"`
-    )
-    data.Body.pipe(res)
-  } catch {
-    res.sendStatus(404)
-  }
+  const data = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: `treinamentos/${req.params.filename}`,
+    })
+  )
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${req.params.filename}"`
+  )
+  data.Body.pipe(res)
 })
 
 // =======================
 // DELETE
 // =======================
 app.delete('/delete/:filename', async (req, res) => {
-  try {
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: `uploads/${req.params.filename}`,
-      })
-    )
-    res.sendStatus(200)
-  } catch {
-    res.sendStatus(404)
-  }
+  await s3Client.send(
+    new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: `uploads/${req.params.filename}`,
+    })
+  )
+  res.sendStatus(200)
 })
 
 app.delete('/delete-treinamentos/:filename', async (req, res) => {
-  try {
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: `treinamentos/${req.params.filename}`,
-      })
-    )
-    res.sendStatus(200)
-  } catch {
-    res.sendStatus(404)
-  }
+  await s3Client.send(
+    new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: `treinamentos/${req.params.filename}`,
+    })
+  )
+  res.sendStatus(200)
 })
 
 // =======================
