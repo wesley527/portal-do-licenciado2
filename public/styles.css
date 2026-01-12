@@ -498,7 +498,7 @@ button:hover {
 ========================= */
 .toast-container {
   position: fixed;
-  top: 20px;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -507,6 +507,7 @@ button:hover {
   z-index: 9999;
   pointer-events: none;
   align-items: center;
+  width: 100%;
 }
 
 /* =========================
@@ -514,14 +515,21 @@ button:hover {
 ========================= */
 .toast {
   min-width: 280px;
-  max-width: 90vw;
+  max-width: min(90vw, 420px);
   padding: 14px 20px;
   border-radius: 14px;
+
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+
   font-weight: 500;
   color: #fff;
+
+  margin: 0 auto;
+  text-align: center;
+
   box-shadow: 0 15px 40px rgba(0,0,0,.35);
   animation: toastIn 0.4s ease forwards;
 }
