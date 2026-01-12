@@ -15,17 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // =======================
   // TOAST
   // =======================
-  function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast')
-    toast.textContent = message
-    toast.className = `toast ${type}`
-    toast.classList.remove('hidden')
+ function showToast(message, type = 'success') {
+  const toast = document.createElement('div')
+  toast.className = `toast ${type}`
+  toast.innerText = message
 
-    setTimeout(() => {
-      toast.classList.add('hidden')
-    }, 3000)
-  }
+  document.body.appendChild(toast)
 
+  setTimeout(() => {
+    toast.classList.add('hide')
+  }, 2500)
+
+  setTimeout(() => {
+    toast.remove()
+  }, 3000)
+}
   // =======================
   // LOGIN
   // =======================

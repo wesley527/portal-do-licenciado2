@@ -1,5 +1,60 @@
 /* styles.css atualizado com fundo intergaláctico atrás de tudo e barra de rolagem personalizada */
 
+/* ===== TOAST GLOBAL (DESKTOP + MOBILE) ===== */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 280px;
+  max-width: 90%;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: #fff;
+  z-index: 9999;
+  box-shadow: 0 15px 40px rgba(0,0,0,.35);
+  animation: toastIn 0.4s ease forwards;
+}
+
+/* Sucesso */
+.toast.success {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+/* Erro */
+.toast.error {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+/* Saída */
+.toast.hide {
+  animation: toastOut 0.4s ease forwards;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -15px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -15px);
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -401,75 +456,7 @@ button:hover {
     box-sizing: border-box;
   }
 
-  .toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  min-width: 260px;
-  padding: 14px 18px;
-  border-radius: 12px;
-  font-weight: 500;
-  color: #fff;
-  z-index: 9999;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25);
-  animation: slideIn .4s ease forwards;
-}
 
-.toast.success {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-}
-
-.toast.error {
-  background: linear-gradient(135deg, #ef4444, #b91c1c);
-}
-
-.toast.hidden {
-  display: none;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-.register-feedback {
-  margin-top: 12px;
-  font-size: 14px;
-  text-align: center;
-  padding: 10px;
-  border-radius: 8px;
-  animation: fadeUp 0.4s ease;
-}
-
-.register-feedback.success {
-  background: rgba(0, 200, 120, 0.15);
-  color: #00c878;
-}
-
-.register-feedback.error {
-  background: rgba(255, 60, 60, 0.15);
-  color: #ff3c3c;
-}
-
-.hidden {
-  display: none;
-}
-
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
   /* Aqui está o card de login ajustado só para celular */
   #login-card {
