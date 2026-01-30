@@ -626,3 +626,46 @@ button:hover {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Checklist Administrativo styles (match file-list visual pattern) */
+.checklist-list {
+  list-style: none;
+  padding: 10px;
+  margin: 0;
+  border: 1px solid #444;
+  border-radius: 10px;
+  background-color: #1e1e2f;
+}
+.checklist-list li {
+  background-color: #2c2c54;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #eee;
+  width: 98%;
+}
+.checklist-list li:last-child { margin-bottom: 0; }
+.checklist-list .acesso-btn {
+  margin-left: 8px;
+  padding: 6px 10px;
+  background: #ffe600;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+@media (max-width: 968px) {
+  .checklist-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .checklist-list .acesso-btn {
+    margin-top: 8px;
+  }
+}
